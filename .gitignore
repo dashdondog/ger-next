@@ -1,0 +1,7 @@
+node_modules
+.next
+public/draco
+data/
+.env*.local
+chrome-cdp-*/
+.vercel

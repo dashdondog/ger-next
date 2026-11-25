@@ -1,0 +1,887 @@
+:root {
+  /* the start circle's glass (Figma "Frame 2"): a brown 20% fill and a white edge fading out */
+  --glass-fill: linear-gradient(135deg, rgba(57, 41, 26, 0.1), rgba(159, 115, 72, 0.2));
+  --glass-edge: linear-gradient(160deg, rgba(255, 255, 255, 0.46), rgba(17, 13, 13, 0.12) 75%);
+  --glass-text: rgba(255, 255, 255, 0.82);
+  --ink: #2a2118;
+  --muted: #6b5d4f;
+  --paper: rgba(255, 252, 246, 0.92);
+  --accent: #c8502e;
+  --accent-ink: #ffffff;
+  --blue: #2f6fb3;
+  --line: rgba(42, 33, 24, 0.14);
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #cfe3ee;
+  color: var(--ink);
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+.stage {
+  position: fixed;
+  inset: 0;
+}
+.scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+/* build steps: a vertical list on the right (below the sky controls), the current step expanded with its description */
+.panel {
+  position: absolute; right: 16px; top: 68px;
+  width: 240px; max-height: calc(100% - 84px);
+  display: flex; flex-direction: column;   /* only the list scrolls; the buttons stay in view */
+  padding: 10px; border-radius: 16px;
+  background: var(--paper); backdrop-filter: blur(8px);
+  box-shadow: 0 8px 30px rgba(42, 33, 24, 0.18);
+}
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow-y: auto; }
+.steps li button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 7px 8px; border: 0; border-radius: 10px; background: transparent;
+  font: inherit; font-size: 15px; color: var(--muted); text-align: left; cursor: pointer;
+}
+.steps li button:hover { background: rgba(42, 33, 24, 0.06); }
+.steps .mark {
+  flex: none; width: 24px; height: 24px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 12px; font-weight: 700;
+  border: 1.5px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.steps li.done button { color: var(--ink); }
+.steps li.done .mark { background: var(--blue); border-color: var(--blue); color: #fff; }
+.steps li.now button { color: var(--ink); font-weight: 700; background: rgba(200, 80, 46, 0.1); }
+.steps li.now .mark { background: var(--accent); border-color: var(--accent); color: #fff; font-size: 10px; }
+.steps .desc { margin: 2px 8px 8px 42px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.hint { flex: none; margin: 8px 4px 0; padding: 8px 10px; border-radius: 10px; font-size: 13px; line-height: 1.4; color: var(--ink); background: rgba(46, 108, 180, 0.1); }
+
+.buttons { display: flex; gap: 8px; margin-top: 10px; flex: none; }
+.buttons button { height: 42px; border-radius: 12px; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+.buttons .ghost { width: 48px; flex: none; }
+.buttons .primary { flex: 1; }
+.primary { border: 0; background: var(--accent); color: var(--accent-ink); }
+.primary:hover { filter: brightness(1.06); }
+.ghost { border: 1px solid var(--line); background: transparent; color: var(--ink); }
+.ghost:disabled { opacity: 0.4; cursor: default; }
+.buttons button:focus-visible, .steps li button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* day / night bar (top right), from the geree project */
+.daynight {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(42, 33, 24, 0.85);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+.daynight button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font:
+    600 14px system-ui,
+    sans-serif;
+  cursor: pointer;
+  transition: color 0.2s;
+  white-space: nowrap;
+}
+.daynight button:hover,
+.daynight button.on {
+  color: #fff;
+}
+.daynight .sep {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.2);
+}
+.daynight button:focus-visible,
+.daynight input:focus-visible {
+  outline: 2px solid #ffc27a;
+  outline-offset: 2px;
+}
+.daynight svg {
+  width: 16px;
+  height: 16px;
+}
+svg.line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* track follows the cycle: sunrise · noon · sunset · moonrise · midnight · moonset */
+.daynight input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 180px;
+  height: 6px;
+  margin: 0 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #e0835a 0%,
+    #ffd27a 10%,
+    #8cc4ec 25%,
+    #ffd27a 40%,
+    #e0835a 50%,
+    #3a3f6e 58%,
+    #101a3a 75%,
+    #3a3f6e 92%,
+    #e0835a 100%
+  );
+  cursor: pointer;
+}
+.daynight input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #2a2118;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.daynight input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #2a2118;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+@media (max-width: 560px) {
+  /* phones: a narrow column of numbers; only the current step shows its name */
+  .panel { right: 10px; top: auto; bottom: 16px; width: auto; max-width: 170px; max-height: calc(100% - 130px); padding: 6px; }
+  .steps li button { padding: 4px; font-size: 14px; gap: 8px; }
+  .steps li:not(.now) .name, .steps .desc { display: none; }
+  .hint { margin: 6px 0 0; padding: 6px 8px; font-size: 12px; }
+  .steps .mark { width: 24px; height: 24px; }
+  .buttons { flex-direction: column; gap: 6px; margin-top: 6px; }
+  .buttons .ghost, .buttons .primary { flex: none; width: 100%; height: 38px; font-size: 14px; }
+  .daynight {
+    top: 12px;
+    right: 12px;
+  }
+  .daynight .lbl {
+    display: none;
+  }
+  .daynight input {
+    width: 110px;
+  }
+}
+
+/* intro: the glass start circle (Figma "Frame 2", 449px, scaled by --scale) with two 20% white
+   rings rippling out behind it (Figma "Component 1", Frame 1 → 4), half a cycle apart */
+.intro {
+  position: absolute;
+  inset: 0;
+  /* frosted glass over the orbiting scene (Figma "iPhone 18 Pro Max - 2") */
+  background: rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  backdrop-filter: blur(16px) saturate(1.1);
+  transition: opacity 0.7s ease;
+}
+.intro.leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+/* the glass circle, shared by the loading progress and the start button */
+.orb {
+  position: absolute;
+  --scale: 0.4454; /* Figma's 449px circle → 200px */
+  --size: calc(449px * var(--scale));
+  width: var(--size);
+  height: var(--size);
+  left: calc(50% - var(--size) / 2 + 0.5px);
+  top: calc(50% - var(--size) / 2 + 0.5px);
+}
+.intro-start {
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.intro-start .ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #ffffff;
+}
+.orb .face {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 449px;
+  height: 449px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: scale(var(--scale));
+  transform-origin: 0 0;
+  transition: transform 0.2s ease;
+}
+.orb .face img {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+.intro-start .ring {
+  opacity: 0;
+  animation: intro-ripple 2.4s cubic-bezier(0.25, 0.6, 0.35, 1) infinite;
+}
+.intro-start .ring.late {
+  animation-delay: 1.2s;
+}
+@keyframes intro-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.2;
+  }
+  70% {
+    opacity: 0.2;
+  }
+  100% {
+    transform: scale(2.818); /* 727 / 258 */
+    opacity: 0;
+  }
+}
+.orb .label {
+  position: relative;
+  font-family: var(--font-comfortaa), system-ui, sans-serif;
+  font-size: 96px;
+  font-weight: 700;
+  line-height: normal;
+  color: rgba(255, 255, 255, 0.63);
+  transition: color 0.2s ease;
+}
+.intro-start:hover .face {
+  transform: scale(calc(var(--scale) * 1.04)) translate(-1.92%, -1.92%);
+}
+.intro-start:hover .label {
+  color: rgba(255, 255, 255, 0.9);
+}
+.intro-start:focus-visible {
+  outline: none;
+}
+.intro-start:focus-visible .label {
+  color: rgba(255, 255, 255, 0.9);
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro-start .ring {
+    animation: none;
+  }
+}
+
+/* loading: the progress runs clockwise round the glass circle */
+.loading .arc {
+  position: absolute;
+  inset: -14px;
+  width: calc(100% + 28px);
+  height: calc(100% + 28px);
+  transform: rotate(-90deg);
+  fill: none;
+  stroke-width: 1.5;
+}
+.loading .arc circle {
+  stroke: rgba(255, 255, 255, 0.18);
+}
+.loading .arc .fill {
+  stroke: rgba(255, 255, 255, 0.75);
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  transition: stroke-dashoffset 0.3s ease;
+}
+.loading .label {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── glass buttons: every button takes the start circle's look ───────────────────────────── */
+.steps li button,
+.buttons button,
+.daynight button,
+.music button {
+  border: 1.5px solid transparent;
+  background:
+    var(--glass-fill) padding-box,
+    var(--glass-edge) border-box;
+  color: var(--glass-text);
+  font-family: var(--font-comfortaa), system-ui, sans-serif;
+  font-weight: 700;
+  transition:
+    color 0.2s,
+    background 0.2s;
+}
+.steps li button:hover,
+.buttons button:hover:not(:disabled),
+.daynight button:hover,
+.music button:hover {
+  color: #fff;
+  background:
+    linear-gradient(135deg, rgba(57, 41, 26, 0.18), rgba(159, 115, 72, 0.32)) padding-box,
+    var(--glass-edge) border-box;
+}
+.daynight button.on,
+.music button.on,
+.steps li.now button,
+.buttons .primary {
+  color: #fff;
+  background:
+    linear-gradient(135deg, rgba(200, 80, 46, 0.35), rgba(159, 115, 72, 0.45)) padding-box,
+    var(--glass-edge) border-box;
+}
+.steps li.done button {
+  color: var(--glass-text);
+}
+.buttons button:focus-visible,
+.steps li button:focus-visible,
+.daynight button:focus-visible,
+.music button:focus-visible,
+.music input:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 2px;
+}
+
+/* the panels the buttons sit in turn to frosted glass too, so the light text stays readable */
+.panel,
+.daynight,
+.music {
+  background: rgba(42, 33, 24, 0.38);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+}
+.steps {
+  gap: 4px;
+}
+.steps .mark {
+  border-color: rgba(255, 255, 255, 0.4);
+  color: inherit;
+}
+.steps .desc {
+  color: rgba(255, 255, 255, 0.75);
+}
+.hint {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* music volume (top left), the mirror of the day / night bar */
+.music {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 4px 4px;
+  border-radius: 999px;
+}
+.music button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.music svg {
+  width: 16px;
+  height: 16px;
+}
+.music input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 120px;
+  height: 6px;
+  margin: 0;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.8) var(--fill),
+    rgba(255, 255, 255, 0.18) var(--fill)
+  );
+  cursor: pointer;
+}
+.music input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.music input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+@media (max-width: 560px) {
+  .music {
+    top: 12px;
+    left: 12px;
+  }
+  .music input {
+    width: 64px;
+  }
+}
+
+/* graphics quality (top left, under the music): a three-way glass switch */
+.quality {
+  position: absolute;
+  top: 68px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 4px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(42, 33, 24, 0.38);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+}
+.quality legend {
+  float: left; /* keeps the legend inside the pill */
+  padding: 0 6px 0 10px;
+  color: rgba(255, 255, 255, 0.6);
+  font:
+    700 13px var(--font-comfortaa),
+    system-ui,
+    sans-serif;
+}
+.quality label {
+  padding: 7px 12px;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  background:
+    var(--glass-fill) padding-box,
+    var(--glass-edge) border-box;
+  color: var(--glass-text);
+  font:
+    700 13px var(--font-comfortaa),
+    system-ui,
+    sans-serif;
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    background 0.2s;
+}
+.quality label:hover {
+  color: #fff;
+}
+.quality label.on {
+  color: #fff;
+  background:
+    linear-gradient(135deg, rgba(200, 80, 46, 0.35), rgba(159, 115, 72, 0.45)) padding-box,
+    var(--glass-edge) border-box;
+}
+.quality input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.quality label:has(input:focus-visible) {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 2px;
+}
+.intro ~ .quality {
+  z-index: 1; /* stays usable over the intro's glass */
+}
+@media (max-width: 560px) {
+  .quality {
+    top: 60px;
+    left: 12px;
+  }
+  .quality legend {
+    display: none;
+  }
+}
+
+
+/* the part cards (bottom centre): only the next part can be picked, the rest wait, dimmed */
+.tray {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  width: min(760px, calc(100% - 32px));
+}
+.tray .card {
+  min-width: 104px;
+  padding: 14px 18px;
+  border: 1.5px solid transparent;
+  border-radius: 16px;
+  background:
+    var(--glass-fill) padding-box,
+    var(--glass-edge) border-box;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: var(--glass-text);
+  font:
+    700 15px var(--font-comfortaa),
+    system-ui,
+    sans-serif;
+  background:
+    linear-gradient(135deg, rgba(42, 33, 24, 0.35), rgba(42, 33, 24, 0.25)) padding-box,
+    var(--glass-edge) border-box; /* waiting: darker glass so the label reads over the grass */
+  color: rgba(255, 255, 255, 0.55);
+  transition:
+    opacity 0.3s,
+    transform 0.3s;
+}
+.tray .card.next {
+  opacity: 1;
+  color: #fff;
+  cursor: pointer;
+  background:
+    linear-gradient(135deg, rgba(200, 80, 46, 0.35), rgba(159, 115, 72, 0.45)) padding-box,
+    var(--glass-edge) border-box;
+  animation: card-breathe 2.8s ease-in-out infinite;
+}
+.tray .card.next:hover {
+  transform: translateY(-4px);
+}
+.tray .card:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 2px;
+}
+@keyframes card-breathe {
+  50% {
+    box-shadow: 0 0 22px rgba(255, 200, 150, 0.35);
+  }
+}
+.tray-hint {
+  flex: 1;
+  margin: 0;
+  align-self: center;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* the built ger: one quiet line above the rebuild button, fading away */
+.chill-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 84px; /* just above the rebuild button */
+  transform: translateX(-50%);
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font:
+    700 14px var(--font-comfortaa),
+    system-ui,
+    sans-serif;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  animation: chill-hint 6s ease forwards;
+}
+@keyframes chill-hint {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tray .card.next {
+    animation: none;
+  }
+}
+@media (max-width: 560px) {
+  /* phones: the step panel sits bottom right, so the cards take the left */
+  .tray {
+    left: 12px;
+    bottom: 16px;
+    transform: none;
+    justify-content: flex-start;
+    width: calc(100% - 200px);
+    gap: 6px;
+  }
+  .tray .card {
+    min-width: 0;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
+
+/* the current step's line, just above the cards */
+.caption {
+  position: absolute;
+  left: 50%;
+  bottom: 150px;
+  transform: translateX(-50%);
+  width: min(560px, calc(100% - 32px));
+  margin: 0;
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.5;
+  text-align: center;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+@media (max-width: 560px) {
+  .caption {
+    bottom: auto;
+    top: 108px;
+    font-size: 13px;
+  }
+  .tray {
+    width: calc(100% - 24px);
+  }
+}
+.tray .card:not(:disabled):not(.next) {
+  color: var(--glass-text); /* a plain button (Дахин барих), not a waiting part */
+  cursor: pointer;
+}
+.tray .card.waiting {
+  /* the next part, waiting for the one going in now: a slow glow until it is ready */
+  color: rgba(255, 255, 255, 0.8);
+  animation: card-wait 1.4s ease-in-out infinite;
+}
+@keyframes card-wait {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* inside the ger: a small dot in the middle while the mouse is captured, like a first person game */
+.crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+.chill-hint.stay {
+  animation: none; /* the "click to look" line stays until it is done */
+}
+.tray .card kbd {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 5px;
+  font: inherit;
+  font-size: 12px;
+}
+.chill-hint.low {
+  bottom: 20px; /* reading the map: no buttons below, keep clear of the sheet */
+}
+
+/* ── the page on the old map (Figma "Frame 2", 55:27): printed in dark ink on the unrolled sheet,
+   laid out at 420 × 630 and scaled to the sheet's size on screen ── */
+.thanks {
+  position: absolute;
+  z-index: 2;
+  height: 630px;
+  padding: 40px 44px;
+  transform-origin: 0 0;
+  animation: thanks-in 0.6s ease;
+}
+@keyframes thanks-in {
+  from {
+    opacity: 0;
+  }
+}
+.thanks-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  height: 100%;
+  color: rgba(52, 36, 22, 0.88);
+  font-family: var(--font-comfortaa), system-ui, sans-serif;
+  font-weight: 700;
+  text-align: center;
+}
+.thanks h2 {
+  margin: 0 0 6px;
+  font-size: 21px;
+  line-height: 1.7;
+  color: rgba(52, 36, 22, 0.95);
+}
+.thanks p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.thanks .account {
+  font-size: 16px;
+  line-height: 1.8;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+/* the glass button, as on the cards and the bars */
+.glass-btn {
+  padding: 11px 22px;
+  border: 1.5px solid transparent;
+  border-radius: 16px;
+  background:
+    var(--glass-fill) padding-box,
+    var(--glass-edge) border-box;
+  color: var(--glass-text);
+  font:
+    700 15px var(--font-comfortaa),
+    system-ui,
+    sans-serif;
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    background 0.2s;
+}
+.glass-btn:hover:not(:disabled) {
+  color: #fff;
+  background:
+    linear-gradient(135deg, rgba(200, 80, 46, 0.35), rgba(159, 115, 72, 0.45)) padding-box,
+    var(--glass-edge) border-box;
+}
+.glass-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.glass-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 2px;
+}
+/* on the paper the glass takes a little more brown, and ink-coloured text */
+.thanks .glass-btn {
+  color: rgba(52, 36, 22, 0.9);
+  background:
+    linear-gradient(135deg, rgba(57, 41, 26, 0.12), rgba(159, 115, 72, 0.28)) padding-box,
+    linear-gradient(160deg, rgba(255, 255, 255, 0.6), rgba(57, 41, 26, 0.3) 75%) border-box;
+}
+.thanks .glass-btn:hover:not(:disabled) {
+  color: #fff;
+}
+/* message box: a glass panel with the send button in its corner */
+.thanks .message {
+  position: relative;
+  width: 100%;
+  margin-top: 6px;
+}
+.thanks textarea {
+  display: block;
+  width: 100%;
+  height: 150px;
+  padding: 16px 18px 58px;
+  border: 1.5px solid transparent;
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, rgba(57, 41, 26, 0.1), rgba(159, 115, 72, 0.22)) padding-box,
+    linear-gradient(160deg, rgba(255, 255, 255, 0.6), rgba(57, 41, 26, 0.3) 75%) border-box;
+  color: rgba(52, 36, 22, 0.95);
+  font:
+    700 14px/1.5 var(--font-comfortaa),
+    system-ui,
+    sans-serif;
+  resize: none;
+}
+.thanks textarea::placeholder {
+  color: rgba(52, 36, 22, 0.45);
+}
+.thanks textarea:focus-visible {
+  outline: 2px solid rgba(52, 36, 22, 0.4);
+  outline-offset: 2px;
+}
+.thanks .send {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 40px;
+  padding: 0;
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(200, 80, 46, 0.55), rgba(120, 80, 50, 0.7)) padding-box,
+    var(--glass-edge) border-box;
+}
+.thanks .status {
+  position: absolute;
+  left: 18px;
+  bottom: 22px;
+  font-size: 12px;
+}
+.thanks .row {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}
+/* the collaboration side: two glass fields over the message box */
+.thanks .collab {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+.thanks .collab .message {
+  margin-top: 0;
+}
+.thanks input {
+  width: 100%;
+  padding: 12px 18px;
+  border: 1.5px solid transparent;
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(57, 41, 26, 0.1), rgba(159, 115, 72, 0.22)) padding-box,
+    linear-gradient(160deg, rgba(255, 255, 255, 0.6), rgba(57, 41, 26, 0.3) 75%) border-box;
+  color: rgba(52, 36, 22, 0.95);
+  font:
+    700 14px var(--font-comfortaa),
+    system-ui,
+    sans-serif;
+}
+.thanks input::placeholder {
+  color: rgba(52, 36, 22, 0.45);
+}
+.thanks input:focus-visible {
+  outline: 2px solid rgba(52, 36, 22, 0.4);
+  outline-offset: 2px;
+}
