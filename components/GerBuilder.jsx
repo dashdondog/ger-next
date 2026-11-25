@@ -8,6 +8,7 @@ import DayNight from "./DayNight";
 import MusicVolume from "./MusicVolume";
 import Quality from "./Quality";
 import Thanks from "./Thanks";
+import TouchStick from "./TouchStick";
 
 const LAST = STEPS.length;
 
@@ -30,6 +31,8 @@ export default function GerBuilder() {
   const [nearDoor, setNearDoor] = useState(false); // inside, standing at the door: "leave" shows
   const [locked, setLocked] = useState(false); // inside, the mouse is captured for looking round
   const [reading, setReading] = useState(false); // inside, the map is open and the camera on it
+  const [touch, setTouch] = useState(false); // a phone or tablet: drag to look, a stick to walk
+  useEffect(() => setTouch(matchMedia("(pointer: coarse)").matches), []);
   const [page, setPage] = useState(null); // the unrolled map's place on screen: the page sits on it
   // the part cards, in a random order (picked once; the right one is always the next step)
   const [deck] = useState(() => STEPS.map((_, i) => i).sort(() => Math.random() - 0.5));
@@ -187,24 +190,39 @@ export default function GerBuilder() {
           </button>
         </div>
       )}
-      {inside && !moving && nearDoor && (
+      {inside && !moving && !reading && (
         <div className="tray">
-          <button type="button" className="card next" onClick={() => walk(false)}>
-            Гарах ↩ <kbd>E</kbd>
+          <button
+            type="button"
+            className="card next"
+            onClick={(e) => {
+              sceneRef.current?.toggleMap(); // unroll the map and step up to read it
+              e.currentTarget.blur();
+            }}
+          >
+            Унших 📜
           </button>
+          {nearDoor && (
+            <button type="button" className="card" onClick={() => walk(false)}>
+              Гарах ↩ <kbd>E</kbd>
+            </button>
+          )}
         </div>
       )}
       {inside && !moving && locked && !reading && <span className="crosshair" aria-hidden="true" />}
+      {inside && !moving && touch && !reading && <TouchStick sceneRef={sceneRef} />}
       {inside && !moving && (
         <p
           key={reading ? "reading" : locked ? "locked" : "free"}
-          className={`chill-hint ${locked && !reading ? "" : "stay"} ${reading ? "low" : ""}`}
+          className={`chill-hint ${(locked || touch) && !reading ? "" : "stay"} ${reading ? "low" : ""}`}
         >
           {reading
             ? ""
-            : locked
-              ? "W A S D — алхах · Хулгана — харах · Цаас дээр дарж дэлгэнэ · Esc — заагч гаргах"
-              : "Дэлгэц дээр дарж эргэн тойрноо харна уу · Цаас дээр дарж дэлгэнэ"}
+            : touch
+              ? "Чирж эргэн тойрноо харна · Зүүн доор алхана · Цаас дээр дарж дэлгэнэ"
+              : locked
+                ? "W A S D — алхах · Хулгана — харах · Цаас дээр дарж дэлгэнэ · Esc — заагч гаргах"
+                : "Дэлгэц дээр дарж эргэн тойрноо харна уу · Цаас дээр дарж дэлгэнэ"}
         </p>
       )}
     </>
@@ -302,7 +320,7 @@ export default function GerBuilder() {
 
       {ready && !intro && !built && (
         <p className="caption" aria-live="polite">
-          {step === 0 ? "Доороос хэсгээ сонгож гэрээ бариарай" : STEPS[step - 1].text}
+          {step === 0 ? "Доорх товчлуур дээр дарж гэрээ бариарай" : STEPS[step - 1].text}
         </p>
       )}
 

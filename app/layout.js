@@ -13,7 +13,9 @@ export const viewport = { width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="mn" className={comfortaa.variable}>
+    // browser extensions add their own attributes to <html> before React loads; this only
+    // silences that one tag's attribute mismatch, not real hydration errors below it
+    <html lang="mn" className={comfortaa.variable} suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );
